@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SightAI</title>
+    <!-- google fonts -->
+
+    <!-- gogle fonts end here -->
+  </head>
+  <link rel="icon" href="./images/logo2.png" type="image/x-icon" />
+
+  <link rel="stylesheet" href="style.css" />
+  <body>
+    <div class="title">
+      <h1 class="heading">Sight<span id="ai">AI</span></h1>
+    </div>
+    <button class="start-button" type="button" onclick="init()">Start</button>
+    <div id="webcam-container"></div>
+    <div id="label-container"></div>
+    <div id="details-container"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script type="text/javascript">
+      /****************************************/
+      // KEEP PRODUCT DATA HERE
+      const products = [
+        {
+          name: "Redmi Note 10 Pro",
+          category: "Smartphone",
+          description:
+            "The Redmi Note 10 Pro is a feature-packed smartphone that offers excellent performance and a stunning display.",
+          launchDate: "March 2021",
+          price: "Starting from $279",
+          specifications:
+            "The Redmi Note 10 Pro features a 6.67-inch Super AMOLED display, a powerful Qualcomm Snapdragon processor, up to 8GB of RAM, and up to 128GB of storage. It boasts a quad-camera setup with a 64MP main sensor, supports fast charging, and offers a large battery capacity.",
+          colorVariants: [
+            "Glacier Blue",
+            "Gradient Bronze",
+            "Onyx Gray",
+            "Dark Night",
+          ],
+        },
+        {
+          name: "OPPO A54s",
+          category: "Smartphone",
+          description:
+            "The Oppo A54s is a stylish and affordable smartphone that provides reliable performance and a range of impressive features.",
+          launchDate: "September 2021",
+          price: "Starting from $199",
+          specifications:
+            "The Oppo A54s features a 6.5-inch IPS LCD display, a MediaTek Helio G35 processor, 4GB of RAM, and 128GB of internal storage. It boasts a triple-camera setup with a 13MP main sensor and supports fast charging. The device also offers expandable storage and a long-lasting battery.",
+          colorVariants: ["Crystal Black", "Starry Blue"],
+        },
+        {
+          name: "Vivo Y16",
+          category: "Smartphone",
+          description:
+            "The Vivo Y16 is a budget-friendly smartphone that combines impressive features and a sleek design.",
+          launchDate: "August 2020",
+          price: "Starting from $149",
+          specifications:
+            "The Vivo Y16 features a 6.35-inch IPS LCD display, a MediaTek Helio P35 processor, 4GB of RAM, and 64GB of internal storage. It has a triple-camera setup with a 13MP main sensor, supports fast charging, and packs a large battery for extended usage.",
+          colorVariants: ["Mineral Blue", "Mystic Purple"],
+        },
+        {
+          name: "boAt BassHeads 225",
+          category: "Earphones",
+          description:
+            "The boAt BassHeads 225 are in-ear headphones that deliver powerful bass and clear audio quality.",
+          launchDate: "N/A",
+          price: "Approximately $20",
+          specifications:
+            "The boAt BassHeads 225 earphones feature 10mm dynamic drivers that produce enhanced bass and well-balanced sound. They have a lightweight design, a gold-plated 3.5mm audio jack, and a tangle-free cable for convenience. The earphones also come with in-line controls and a built-in microphone.",
+          colorVariants: ["Black"],
+        },
+        {
+          name: "Logitech Mouse",
+          category: "Computer Peripheral",
+          description:
+            "The Logitech Mouse is a reliable and ergonomic pointing device designed to provide precise cursor control and enhance productivity.",
+          launchDate: "N/A",
+          price: "Varies depending on the model and features",
+          specifications:
+            "Logitech offers a wide range of mouse models with different specifications. They typically feature optical or laser sensors for accurate tracking, customizable buttons for quick actions, and ergonomic designs for comfort during extended use. The mice may also support wireless connectivity and come with software for customization and gesture controls.",
+          colorVariants: ["Varies depending on the model"],
+        },
+      ];
+
+      function findProduct(name) {
+        for (let i = 0; i < products.length; i++) {
+          if (products[i].name == name) {
+            return products[i];
+          }
+        }
+      }
+
+      function createCard(product, image) {
+        return `
+             <div class="product">
+                <img src="${image}" alt="${product.name}">
+                <ul>
+                  <h1> ${product.name} </h1>
+                  <li>Category: ${product.category}</li>
+                  <li>Description: ${product.description}</li>
+                  <li>Launch Date: ${product.launchDate} </li>
+                  <li>Price: ${product.price} </li>
+                  <li>Specifications: ${product.specifications}</li>
+                  <li>Color Variants: ${product.colorVariants.join(" | ")}</li>
+                </ul>
+              </div>
+        `;
+      }
+      // More API functions here:
+      // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+
+      // the link to your model provided by Teachable Machine export panel
+      const URL = "https://teachablemachine.withgoogle.com/models/h7ZBUZQsz/";
+
+      let model, webcam, labelContainer, maxPredictions;
+
+      // Load the image model and setup the webcam
+      async function init() {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        // load the model and metadata
+        // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
+        // or files from your local hard drive
+        // Note: the pose library adds "tmImage" object to your window (window.tmImage)
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        // Convenience function to setup a webcam
+        const flip = true; // whether to flip the webcam
+        webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
+        await webcam.setup(); // request access to the webcam
+        await webcam.play();
+        window.requestAnimationFrame(loop);
+
+        // append elements to the DOM
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+        labelContainer = document.getElementById("label-container");
+        for (let i = 0; i < maxPredictions; i++) {
+          // and class labels
+          let div = document.createElement("div");
+          div.setAttribute("class", "label");
+          labelContainer.appendChild(div);
+        }
+      }
+
+      async function loop() {
+        webcam.update(); // update the webcam frame
+        await predict();
+        window.requestAnimationFrame(loop);
+      }
+
+      // run the webcam image through the image model
+      async function predict() {
+        // predict can take in an image, video or canvas html element
+        const prediction = await model.predict(webcam.canvas);
+        for (let i = 0; i < maxPredictions; i++) {
+          const classPrediction =
+            prediction[i].className +
+            ": " +
+            prediction[i].probability.toFixed(2);
+          labelContainer.childNodes[i].innerHTML = classPrediction;
+
+          let currentLabel = labelContainer.childNodes[i];
+          let detailsContainer = document.getElementById("details-container");
+          if (prediction[i].probability.toFixed(2) > 0.7) {
+            currentLabel.classList.add("blue");
+            if (prediction[i].className == "Nothing") {
+              detailsContainer.innerHTML = `<h1 class='no-product-h1'> No product is being shown here! </h1>`;
+              currentLabel.classList.add("blue");
+            } else if (prediction[i].className == "Redmi Note 10 Pro") {
+              product = findProduct("Redmi Note 10 Pro");
+              image = "./images/redmi.jpeg";
+              detailsContainer.innerHTML = `
+              ${createCard(product, image)}
+              `;
+              currentLabel.classList.add("blue");
+            } else if (prediction[i].className == "Boat Wired Earphone") {
+              product = findProduct("boAt BassHeads 225");
+              image = "./images/boat.jpg";
+              detailsContainer.innerHTML = `
+              ${createCard(product, image)}
+              `;
+            } else if (prediction[i].className == "Vivo Y16") {
+              product = findProduct("Vivo Y16");
+              image = "./images/vivo.webp";
+              detailsContainer.innerHTML = `
+              ${createCard(product, image)}
+              `;
+            } else if (prediction[i].className == "Logitech Mouse") {
+              product = findProduct("Logitech Mouse");
+              image = "./images/logitech.webp";
+              detailsContainer.innerHTML = `
+              ${createCard(product, image)}
+              `;
+            } else if (prediction[i].className == "OPPO A54s") {
+              product = findProduct("OPPO A54s");
+              image = "./images/oppo.jpeg";
+              detailsContainer.innerHTML = `
+              ${createCard(product, image)}
+              `;
+            }
+          } else {
+            currentLabel.classList.remove("blue");
+          }
+        }
+      }
+    </script>
+  </body>
+  <!-- Latest compiled and minified JavaScript -->
+</html>
